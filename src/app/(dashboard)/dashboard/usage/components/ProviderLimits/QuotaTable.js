@@ -67,6 +67,32 @@ function getColorClasses(remainingPercentage) {
   };
 }
 
+function formatDateTime(value) {
+  if (!value) return null;
+  try {
+    return new Date(value).toLocaleString("en-US", {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  } catch {
+    return null;
+  }
+}
+
+function buildQuotaMetadata(quota) {
+  const items = [];
+  if (quota.maskedKey) items.push(`Key ${quota.maskedKey}`);
+  if (Number.isFinite(quota.dailyRequests)) items.push(`${quota.dailyRequests.toLocaleString()} daily req`);
+  if (Number.isFinite(quota.totalRequests)) items.push(`${quota.totalRequests.toLocaleString()} total req`);
+  if (Number.isFinite(quota.totalTokensUsed)) items.push(`${quota.totalTokensUsed.toLocaleString()} total tokens`);
+  if (quota.daysLeft !== null && quota.daysLeft !== undefined) items.push(`${quota.daysLeft} days left`);
+  const expiresAt = formatDateTime(quota.expiresAt);
+  if (expiresAt) items.push(`Expires ${expiresAt}`);
+  return items;
+}
+
 /**
  * Quota Table Component - Table-based display for quota data
  */
@@ -93,8 +119,10 @@ export default function QuotaTable({ quotas = [], compact = false }) {
             const countdown = formatResetTime(quota.resetAt);
             const resetDisplay = formatResetTimeDisplay(quota.resetAt);
 
+            const metadata = buildQuotaMetadata(quota);
+
             return (
-              <tr 
+              <tr
                 key={index}
                 className="border-b border-black/5 dark:border-white/5 hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors"
               >
@@ -106,6 +134,13 @@ export default function QuotaTable({ quotas = [], compact = false }) {
                       {quota.name}
                     </span>
                   </div>
+                  {metadata.length > 0 && !compact && (
+                    <div className="mt-1 space-y-0.5 pl-5 text-[10px] leading-tight text-text-muted">
+                      {metadata.slice(0, 3).map((item) => (
+                        <div key={item} className="truncate" title={item}>{item}</div>
+                      ))}
+                    </div>
+                  )}
                 </td>
 
                 {/* Limit (Progress + Numbers) */}

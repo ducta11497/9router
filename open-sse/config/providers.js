@@ -117,6 +117,11 @@ export const PROVIDERS = {
       "X-Title": "Endpoint Proxy"
     }
   },
+  krouter: {
+    baseUrl: "https://sv1.krouter.net/v1/chat/completions",
+    format: "openai",
+    headers: {}
+  },
   openai: {
     baseUrl: "https://api.openai.com/v1/chat/completions",
     format: "openai"

@@ -277,6 +277,21 @@ export async function POST(request) {
           isValid = openrouterRes.ok;
           break;
 
+        case "krouter": {
+          const krouterRes = await fetch("https://sv1.krouter.net/api/keys/check-usage", {
+            method: "POST",
+            headers: {
+              "Accept": "*/*",
+              "Content-Type": "application/json",
+              "Origin": "https://sv1.krouter.net",
+              "Referer": "https://sv1.krouter.net/",
+            },
+            body: JSON.stringify({ apiKey }),
+          });
+          isValid = krouterRes.ok;
+          break;
+        }
+
         case "glm":
         case "glm-cn":
         case "kimi":

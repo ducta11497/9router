@@ -113,9 +113,13 @@ export async function GET(request, { params }) {
       return Response.json({ error: "Connection not found" }, { status: 404 });
     }
 
-    // Only OAuth connections have usage APIs
-    if (connection.authType !== "oauth") {
-      return Response.json({ message: "Usage not available for API key connections" });
+    const isOAuthConnection = connection.authType === "oauth";
+    const isApiKeyConnection = connection.authType === "apikey";
+
+    if (!isOAuthConnection && !isApiKeyConnection) {
+      return Response.json({
+        message: `Usage not available for ${connection.authType || "this"} connections`,
+      });
     }
 
     // Resolve connection proxy config; force strictProxy=false so quota/refresh fall back to direct on failure
@@ -128,23 +132,25 @@ export async function GET(request, { params }) {
       strictProxy: false,
     };
 
-    // Refresh credentials if needed using executor
-    try {
-      const result = await refreshAndUpdateCredentials(connection, false, proxyOptions);
-      connection = result.connection;
-    } catch (refreshError) {
-      console.error("[Usage API] Credential refresh failed:", refreshError);
-      return Response.json({
-        error: `Credential refresh failed: ${refreshError.message}`
-      }, { status: 401 });
+    // Refresh OAuth credentials if needed using executor
+    if (isOAuthConnection) {
+      try {
+        const result = await refreshAndUpdateCredentials(connection, false, proxyOptions);
+        connection = result.connection;
+      } catch (refreshError) {
+        console.error("[Usage API] Credential refresh failed:", refreshError);
+        return Response.json({
+          error: `Credential refresh failed: ${refreshError.message}`
+        }, { status: 401 });
+      }
     }
 
     // Fetch usage from provider API
     let usage = await getUsageForProvider(connection, proxyOptions);
 
-    // If provider returned an auth-expired message instead of throwing,
-    // force-refresh token and retry once
-    if (isAuthExpiredMessage(usage) && connection.refreshToken) {
+    // If an OAuth provider returned an auth-expired message instead of throwing,
+    // force-refresh token and retry once. API key connections are not refreshable here.
+    if (isOAuthConnection && isAuthExpiredMessage(usage) && connection.refreshToken) {
       try {
         const retryResult = await refreshAndUpdateCredentials(connection, true, proxyOptions);
         connection = retryResult.connection;

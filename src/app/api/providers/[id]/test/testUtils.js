@@ -416,6 +416,19 @@ async function testApiKeyConnection(connection, effectiveProxy = null) {
         const res = await fetchWithConnectionProxy("https://openrouter.ai/api/v1/auth/key", { headers: { Authorization: `Bearer ${connection.apiKey}` } }, effectiveProxy);
         return { valid: res.ok, error: res.ok ? null : "Invalid API key" };
       }
+      case "krouter": {
+        const res = await fetchWithConnectionProxy("https://sv1.krouter.net/api/keys/check-usage", {
+          method: "POST",
+          headers: {
+            "Accept": "*/*",
+            "Content-Type": "application/json",
+            "Origin": "https://sv1.krouter.net",
+            "Referer": "https://sv1.krouter.net/",
+          },
+          body: JSON.stringify({ apiKey: connection.apiKey }),
+        }, effectiveProxy);
+        return { valid: res.ok, error: res.ok ? null : "Invalid API key" };
+      }
       case "glm": {
         const res = await fetchWithConnectionProxy("https://api.z.ai/api/anthropic/v1/messages", {
           method: "POST",

@@ -132,20 +132,20 @@ export default function PassthroughModelsSection({ providerAlias, modelAliases, 
   return (
     <div className="flex flex-col gap-4">
       <p className="text-sm text-text-muted">
-        OpenRouter supports any model. Add models and create aliases for quick access.
+        This provider supports passthrough model IDs. Add models and create aliases for quick access.
       </p>
 
       {/* Add new model */}
       <div className="flex items-end gap-2">
         <div className="flex-1">
-          <label htmlFor="new-model-input" className="text-xs text-text-muted mb-1 block">Model ID (from OpenRouter)</label>
+          <label htmlFor="new-model-input" className="text-xs text-text-muted mb-1 block">Model ID</label>
           <input
             id="new-model-input"
             type="text"
             value={newModel}
             onChange={(e) => setNewModel(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleAdd()}
-            placeholder="anthropic/claude-3-opus"
+            placeholder="provider/model-id"
             className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:border-primary"
           />
         </div>

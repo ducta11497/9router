@@ -54,6 +54,7 @@ export const OAUTH_PROVIDERS = {
 };
 
 export const APIKEY_PROVIDERS = {
+  krouter: { id: "krouter", alias: "krouter", name: "Krouter", icon: "router", color: "#F97316", textIcon: "KR", website: "https://sv1.krouter.net", notice: { text: "Krouter API key with usage quota tracking via check-usage endpoint.", apiKeyUrl: "https://sv1.krouter.net" }, serviceKinds: ["llm"], passthroughModels: true },
   glm: { id: "glm", alias: "glm", name: "GLM Coding", icon: "code", color: "#2563EB", textIcon: "GL", website: "https://open.bigmodel.cn", notice: { apiKeyUrl: "https://open.bigmodel.cn/usercenter/apikeys" } },
   "glm-cn": { id: "glm-cn", alias: "glm-cn", name: "GLM (China)", icon: "code", color: "#DC2626", textIcon: "GC", website: "https://open.bigmodel.cn", notice: { apiKeyUrl: "https://open.bigmodel.cn/usercenter/apikeys" } },
   kimi: { id: "kimi", alias: "kimi", name: "Kimi", icon: "psychology", color: "#1E3A8A", textIcon: "KM", website: "https://kimi.moonshot.cn", notice: { apiKeyUrl: "https://platform.moonshot.ai/console/api-keys" }, serviceKinds: ["llm", "webSearch"], searchViaChat: { defaultModel: "kimi-k2.5", pricingUrl: "https://platform.moonshot.ai/docs/pricing/chat" } },
@@ -221,4 +222,5 @@ export const USAGE_SUPPORTED_PROVIDERS = [
   "codex",
   "kimi-coding",
   "ollama",
+  "krouter",
 ];

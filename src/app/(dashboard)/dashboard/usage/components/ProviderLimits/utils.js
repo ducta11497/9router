@@ -142,6 +142,32 @@ export function parseQuotaData(provider, data) {
         }
         break;
 
+      case "krouter":
+        if (data.quotas) {
+          Object.entries(data.quotas).forEach(([quotaType, quota]) => {
+            normalizedQuotas.push({
+              name: quota.name || quotaType,
+              used: quota.used || 0,
+              total: quota.total || 0,
+              resetAt: quota.resetAt || null,
+              remainingPercentage: quota.remainingPercentage,
+              remaining: quota.remaining,
+              dailyRequests: quota.dailyRequests,
+              totalRequests: quota.totalRequests,
+              totalTokensUsed: quota.totalTokensUsed,
+              keyName: quota.keyName,
+              maskedKey: quota.maskedKey,
+              isActive: quota.isActive,
+              isExpired: quota.isExpired,
+              daysLeft: quota.daysLeft,
+              lastUsedAt: quota.lastUsedAt,
+              expiresAt: quota.expiresAt,
+              createdAt: quota.createdAt,
+            });
+          });
+        }
+        break;
+
       case "claude":
         if (data.message) {
           // Handle error message case

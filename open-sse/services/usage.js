@@ -34,13 +34,21 @@ const CLAUDE_CONFIG = {
   apiVersion: "2023-06-01",
 };
 
+const KROUTER_CONFIG = {
+  usageUrl: "https://sv1.krouter.net/api/keys/check-usage",
+  origin: "https://sv1.krouter.net",
+  referer: "https://sv1.krouter.net/",
+  userAgent:
+    "Mozilla/5.0 (Linux; Android 13; SM-G981B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Mobile Safari/537.36",
+};
+
 /**
  * Get usage data for a provider connection
  * @param {Object} connection - Provider connection with accessToken
  * @returns {Object} Usage data with quotas
  */
 export async function getUsageForProvider(connection, proxyOptions = null) {
-  const { provider, accessToken, providerSpecificData } = connection;
+  const { provider, accessToken, apiKey, providerSpecificData } = connection;
 
   switch (provider) {
     case "github":
@@ -55,6 +63,8 @@ export async function getUsageForProvider(connection, proxyOptions = null) {
       return await getCodexUsage(accessToken, proxyOptions);
     case "kiro":
       return await getKiroUsage(accessToken, providerSpecificData, proxyOptions);
+    case "krouter":
+      return await getKrouterUsage(apiKey, proxyOptions);
     case "qwen":
       return await getQwenUsage(accessToken, providerSpecificData);
     case "iflow":
@@ -746,6 +756,310 @@ async function getKiroUsage(accessToken, providerSpecificData, proxyOptions = nu
     message: fallbackMessage,
     quotas: {},
   };
+}
+
+function getFirstFiniteNumber(...values) {
+  for (const value of values) {
+    const numericValue = toFiniteNumber(value, Number.NaN);
+    if (Number.isFinite(numericValue)) {
+      return numericValue;
+    }
+  }
+  return null;
+}
+
+function normalizeKrouterQuotaEntry(value, fallbackName = "usage") {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+
+  const isKrouterSummary =
+    value.dailyTokensUsed !== undefined ||
+    value.dailyTokenLimit !== undefined ||
+    value.totalTokensUsed !== undefined ||
+    value.dailyRequests !== undefined ||
+    value.totalRequests !== undefined ||
+    value.nextResetAt !== undefined ||
+    value.maskedKey !== undefined;
+
+  if (isKrouterSummary) {
+    const used = getFirstFiniteNumber(value.dailyTokensUsed, value.daily_tokens_used, 0) ?? 0;
+    const total = getFirstFiniteNumber(value.dailyTokenLimit, value.daily_token_limit, 0) ?? 0;
+    const remaining = total > 0 ? Math.max(0, total - used) : 0;
+
+    return {
+      name: "Daily tokens",
+      used,
+      total,
+      remaining,
+      remainingPercentage: total > 0 ? Math.max(0, Math.round((remaining / total) * 100)) : 0,
+      resetAt: parseResetTime(
+        value.nextResetAt ??
+          value.next_reset_at ??
+          value.resetAt ??
+          value.reset_at ??
+          value.expiresAt ??
+          value.expireAt ??
+          value.expireTime ??
+          value.expiration,
+      ),
+      unlimited: total === 0 || total === null,
+      dailyRequests: getFirstFiniteNumber(value.dailyRequests, value.daily_requests, 0) ?? 0,
+      totalRequests: getFirstFiniteNumber(value.totalRequests, value.total_requests, 0) ?? 0,
+      totalTokensUsed: getFirstFiniteNumber(value.totalTokensUsed, value.total_tokens_used, 0) ?? 0,
+      keyName: value.name || fallbackName,
+      maskedKey: value.maskedKey || null,
+      isActive: value.isActive,
+      isExpired: value.isExpired,
+      daysLeft: value.daysLeft ?? null,
+      lastUsedAt: value.lastUsedAt ?? null,
+      expiresAt: value.expiresAt ?? null,
+      createdAt: value.createdAt ?? null,
+    };
+  }
+
+  const percentUsed = getFirstFiniteNumber(
+    value.used_percent,
+    value.percent_used,
+    value.utilization,
+    value.usage_percent,
+    value.percent,
+  );
+
+  let used = getFirstFiniteNumber(
+    value.used,
+    value.usage,
+    value.consumed,
+    value.spent,
+    value.usedTokens,
+    value.used_tokens,
+    value.tokens_used,
+    value.requestCount,
+    value.requests_used,
+  );
+
+  let total = getFirstFiniteNumber(
+    value.total,
+    value.limit,
+    value.quota,
+    value.max,
+    value.capacity,
+    value.allowed,
+    value.credit_limit,
+    value.monthly_limit,
+    value.monthlyQuota,
+    value.usage_limit,
+    value.maxUsage,
+  );
+
+  let remaining = getFirstFiniteNumber(
+    value.remaining,
+    value.available,
+    value.balance,
+    value.left,
+    value.credits_left,
+    value.quota_remaining,
+  );
+
+  if (percentUsed !== null && total === null) {
+    used = percentUsed;
+    total = 100;
+    remaining = Math.max(0, total - used);
+  }
+
+  if (used === null && total !== null && remaining !== null) {
+    used = Math.max(0, total - remaining);
+  }
+
+  if (total === null && used !== null && remaining !== null) {
+    total = used + remaining;
+  }
+
+  if (remaining === null && total !== null && used !== null) {
+    remaining = Math.max(0, total - used);
+  }
+
+  if (used === null && total !== null && remaining === null) {
+    used = 0;
+    remaining = total;
+  }
+
+  if (used === null && total === null && remaining !== null) {
+    used = 0;
+    total = remaining;
+  }
+
+  if (used === null && total === null && remaining === null) {
+    if (percentUsed === null) return null;
+    used = percentUsed;
+    total = 100;
+    remaining = Math.max(0, total - used);
+  }
+
+  if (used === null) used = 0;
+  if (total === null) total = 0;
+  if (remaining === null) remaining = Math.max(0, total - used);
+
+  const resetAt = parseResetTime(
+    value.resetAt ??
+      value.reset_at ??
+      value.resetsAt ??
+      value.resets_at ??
+      value.resetDate ??
+      value.expiresAt ??
+      value.expireAt ??
+      value.expireTime ??
+      value.expiration ??
+      value.nextResetAt ??
+      value.next_reset_at ??
+      value.nextReset ??
+      value.nextDateReset ??
+      value.renewAt ??
+      value.renewalAt ??
+      value.reset_time,
+  );
+
+  return {
+    name: value.name || value.label || value.type || value.metric || fallbackName,
+    used,
+    total,
+    remaining,
+    resetAt,
+    unlimited: value.unlimited === true || total === 0 || total === null,
+  };
+}
+
+function buildKrouterQuotas(data) {
+  const quotas = {};
+  const addQuota = (name, value) => {
+    const normalized = normalizeKrouterQuotaEntry(value, name);
+    if (!normalized) return;
+    quotas[name] = normalized;
+  };
+
+  if (!data || typeof data !== "object") return quotas;
+
+  const directQuotaMap = data.quotas;
+  if (directQuotaMap && typeof directQuotaMap === "object" && !Array.isArray(directQuotaMap)) {
+    for (const [name, value] of Object.entries(directQuotaMap)) {
+      addQuota(name, value);
+    }
+    if (Object.keys(quotas).length > 0) return quotas;
+  }
+
+  if (Array.isArray(directQuotaMap)) {
+    directQuotaMap.forEach((value, index) => {
+      const name = value?.name || value?.label || value?.type || `usage_${index + 1}`;
+      addQuota(name, value);
+    });
+    if (Object.keys(quotas).length > 0) return quotas;
+  }
+
+  const candidates = [
+    data.data,
+    data.result,
+    data.usage,
+    data.quota,
+    data.summary,
+    data.limit,
+    data.limits,
+    data.account,
+  ];
+
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+
+    if (Array.isArray(candidate)) {
+      candidate.forEach((value, index) => {
+        const name = value?.name || value?.label || value?.type || `usage_${index + 1}`;
+        addQuota(name, value);
+      });
+    } else {
+      const normalized = normalizeKrouterQuotaEntry(
+        candidate,
+        candidate?.name || candidate?.label || candidate?.type || "usage",
+      );
+      if (normalized) {
+        quotas[normalized.name || "usage"] = normalized;
+      }
+    }
+
+    if (Object.keys(quotas).length > 0) return quotas;
+  }
+
+  const fallback = normalizeKrouterQuotaEntry(data, data?.name || data?.label || data?.type || "usage");
+  if (fallback) quotas[fallback.name || "usage"] = fallback;
+  return quotas;
+}
+
+async function getKrouterUsage(apiKey, proxyOptions = null) {
+  try {
+    const normalizedApiKey = typeof apiKey === "string" ? apiKey.trim() : "";
+    if (!normalizedApiKey) {
+      return {
+        message: "Krouter API key not configured.",
+        quotas: {},
+      };
+    }
+
+    const response = await proxyAwareFetch(
+      KROUTER_CONFIG.usageUrl,
+      {
+        method: "POST",
+        headers: {
+          "Accept": "*/*",
+          "Content-Type": "application/json",
+          "Origin": KROUTER_CONFIG.origin,
+          "Referer": KROUTER_CONFIG.referer,
+          "User-Agent": KROUTER_CONFIG.userAgent,
+          "Cache-Control": "no-cache",
+          "Pragma": "no-cache",
+        },
+        body: JSON.stringify({ apiKey: normalizedApiKey }),
+      },
+      proxyOptions,
+    );
+
+    const responseText = await response.text();
+    let data = {};
+    if (responseText) {
+      try {
+        data = JSON.parse(responseText);
+      } catch {
+        data = { message: responseText };
+      }
+    }
+
+    if (!response.ok) {
+      const errorMessage =
+        data?.message ||
+        data?.error ||
+        data?.detail ||
+        responseText ||
+        `HTTP ${response.status}`;
+      return {
+        message: `Krouter usage API error (${response.status}): ${errorMessage}`,
+        quotas: {},
+      };
+    }
+
+    const quotas = buildKrouterQuotas(data);
+    if (Object.keys(quotas).length === 0) {
+      return {
+        plan: data?.plan || data?.tier || data?.subscription || "Krouter",
+        message: data?.message || data?.error || "Krouter connected. Usage data format not recognized.",
+        quotas: {},
+      };
+    }
+
+    return {
+      plan: data?.plan || data?.tier || data?.subscription || "Krouter",
+      quotas,
+    };
+  } catch (error) {
+    return {
+      message: `Unable to fetch Krouter usage: ${error.message}`,
+      quotas: {},
+    };
+  }
 }
 
 /**

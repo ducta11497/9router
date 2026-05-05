@@ -13,6 +13,13 @@ const REFRESH_INTERVAL_MS = 60000; // 60 seconds
 const DEPLETED_QUOTA_THRESHOLD = 5; // percent
 const AUTO_REFRESH_STORAGE_KEY = "quotaAutoRefresh";
 
+function isUsageConnection(conn) {
+  return (
+    USAGE_SUPPORTED_PROVIDERS.includes(conn.provider) &&
+    (conn.authType === "oauth" || conn.authType === "apikey")
+  );
+}
+
 export default function ProviderLimits() {
   const [connections, setConnections] = useState([]);
   const [quotaData, setQuotaData] = useState({});
@@ -239,16 +246,10 @@ export default function ProviderLimits() {
     try {
       const conns = await fetchConnections();
 
-      // Filter only supported OAuth providers
-      const oauthConnections = conns.filter(
-        (conn) =>
-          USAGE_SUPPORTED_PROVIDERS.includes(conn.provider) &&
-          conn.authType === "oauth",
-      );
+      const usageConnections = conns.filter(isUsageConnection);
 
-      // Fetch quota for supported OAuth connections only
       await Promise.all(
-        oauthConnections.map((conn) => fetchQuota(conn.id, conn.provider)),
+        usageConnections.map((conn) => fetchQuota(conn.id, conn.provider)),
       );
 
       setLastUpdated(new Date());
@@ -266,21 +267,17 @@ export default function ProviderLimits() {
       const conns = await fetchConnections();
       setConnectionsLoading(false);
 
-      const oauthConnections = conns.filter(
-        (conn) =>
-          USAGE_SUPPORTED_PROVIDERS.includes(conn.provider) &&
-          conn.authType === "oauth",
-      );
+      const usageConnections = conns.filter(isUsageConnection);
 
       // Mark all as loading before fetching
       const loadingState = {};
-      oauthConnections.forEach((conn) => {
+      usageConnections.forEach((conn) => {
         loadingState[conn.id] = true;
       });
       setLoading(loadingState);
 
       await Promise.all(
-        oauthConnections.map((conn) => fetchQuota(conn.id, conn.provider)),
+        usageConnections.map((conn) => fetchQuota(conn.id, conn.provider)),
       );
       setLastUpdated(new Date());
     };
@@ -355,11 +352,7 @@ export default function ProviderLimits() {
   }, [autoRefresh, refreshAll]);
 
   // Filter only supported providers
-  const filteredConnections = connections.filter(
-    (conn) =>
-      USAGE_SUPPORTED_PROVIDERS.includes(conn.provider) &&
-      conn.authType === "oauth",
-  );
+  const filteredConnections = connections.filter(isUsageConnection);
 
   const providerFilteredConnections = filteredConnections.filter(
     (conn) => providerFilter === "all" || conn.provider === providerFilter,
