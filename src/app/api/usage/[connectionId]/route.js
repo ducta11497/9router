@@ -5,6 +5,7 @@ import { getProviderConnectionById, updateProviderConnection } from "@/lib/local
 import { getUsageForProvider } from "open-sse/services/usage.js";
 import { getExecutor } from "open-sse/executors/index.js";
 import { resolveConnectionProxyConfig } from "@/lib/network/connectionProxy";
+import { USAGE_APIKEY_PROVIDERS } from "@/shared/constants/providers";
 
 // Detect auth-expired messages returned by usage providers instead of throwing
 const AUTH_EXPIRED_PATTERNS = ["expired", "authentication", "unauthorized", "401", "re-authorize"];
@@ -113,13 +114,14 @@ export async function GET(request, { params }) {
       return Response.json({ error: "Connection not found" }, { status: 404 });
     }
 
-    const isOAuthConnection = connection.authType === "oauth";
-    const isApiKeyConnection = connection.authType === "apikey";
+    // Allow OAuth connections, plus whitelisted apikey providers (krouter/glm/minimax/...)
+    const isOAuth = connection.authType === "oauth";
+    const isApikeyEligible =
+      connection.authType === "apikey" &&
+      USAGE_APIKEY_PROVIDERS.includes(connection.provider);
 
-    if (!isOAuthConnection && !isApiKeyConnection) {
-      return Response.json({
-        message: `Usage not available for ${connection.authType || "this"} connections`,
-      });
+    if (!isOAuth && !isApikeyEligible) {
+      return Response.json({ message: "Usage not available for this connection" });
     }
 
     // Resolve connection proxy config; force strictProxy=false so quota/refresh fall back to direct on failure
@@ -132,8 +134,8 @@ export async function GET(request, { params }) {
       strictProxy: false,
     };
 
-    // Refresh OAuth credentials if needed using executor
-    if (isOAuthConnection) {
+    // Refresh credentials only for OAuth connections (apikey has no token refresh)
+    if (isOAuth) {
       try {
         const result = await refreshAndUpdateCredentials(connection, false, proxyOptions);
         connection = result.connection;
@@ -148,9 +150,9 @@ export async function GET(request, { params }) {
     // Fetch usage from provider API
     let usage = await getUsageForProvider(connection, proxyOptions);
 
-    // If an OAuth provider returned an auth-expired message instead of throwing,
-    // force-refresh token and retry once. API key connections are not refreshable here.
-    if (isOAuthConnection && isAuthExpiredMessage(usage) && connection.refreshToken) {
+    // If provider returned an auth-expired message instead of throwing,
+    // force-refresh token and retry once (OAuth only)
+    if (isOAuth && isAuthExpiredMessage(usage) && connection.refreshToken) {
       try {
         const retryResult = await refreshAndUpdateCredentials(connection, true, proxyOptions);
         connection = retryResult.connection;
