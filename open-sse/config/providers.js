@@ -118,8 +118,8 @@ export const PROVIDERS = {
     }
   },
   krouter: {
-    baseUrl: "https://sv1.krouter.net/v1/chat/completions",
-    format: "openai",
+    baseUrl: "https://sv1.krouter.net/v1/responses",
+    format: "openai-responses",
     headers: {}
   },
   openai: {

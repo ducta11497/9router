@@ -58,7 +58,7 @@ export const CONSOLE_LOG_CONFIG = {
 
 // Provider API endpoints (for display only)
 export const PROVIDER_ENDPOINTS = {
-  krouter: "https://sv1.krouter.net/v1/chat/completions",
+  krouter: "https://sv1.krouter.net/v1/responses",
   openrouter: "https://openrouter.ai/api/v1/chat/completions",
   glm: "https://api.z.ai/api/anthropic/v1/messages",
   "glm-cn": "https://open.bigmodel.cn/api/coding/paas/v4/chat/completions",
