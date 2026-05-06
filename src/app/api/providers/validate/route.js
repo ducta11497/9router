@@ -278,13 +278,13 @@ export async function POST(request) {
           break;
 
         case "krouter": {
-          const krouterRes = await fetch("https://sv1.krouter.net/api/keys/check-usage", {
+          const krouterRes = await fetch("https://api.krouter.net/api/keys/check-usage", {
             method: "POST",
             headers: {
               "Accept": "*/*",
               "Content-Type": "application/json",
-              "Origin": "https://sv1.krouter.net",
-              "Referer": "https://sv1.krouter.net/",
+              "Origin": "https://api.krouter.net",
+              "Referer": "https://api.krouter.net/",
             },
             body: JSON.stringify({ apiKey }),
           });

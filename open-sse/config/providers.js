@@ -118,7 +118,7 @@ export const PROVIDERS = {
     }
   },
   krouter: {
-    baseUrl: "https://sv1.krouter.net/v1/responses",
+    baseUrl: "https://api.krouter.net/v1/responses",
     format: "openai-responses",
     headers: {}
   },

@@ -417,13 +417,13 @@ async function testApiKeyConnection(connection, effectiveProxy = null) {
         return { valid: res.ok, error: res.ok ? null : "Invalid API key" };
       }
       case "krouter": {
-        const res = await fetchWithConnectionProxy("https://sv1.krouter.net/api/keys/check-usage", {
+        const res = await fetchWithConnectionProxy("https://api.krouter.net/api/keys/check-usage", {
           method: "POST",
           headers: {
             "Accept": "*/*",
             "Content-Type": "application/json",
-            "Origin": "https://sv1.krouter.net",
-            "Referer": "https://sv1.krouter.net/",
+            "Origin": "https://api.krouter.net",
+            "Referer": "https://api.krouter.net/",
           },
           body: JSON.stringify({ apiKey: connection.apiKey }),
         }, effectiveProxy);
